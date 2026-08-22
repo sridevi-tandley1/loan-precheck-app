@@ -19,8 +19,32 @@ recommendation. **The agent recommends; a loan officer decides.**
 | `loan_rules.py` | **The decision engine.** The eight eligibility rules as plain, auditable Python. This is what actually decides PASS / REVIEW / FAIL — the app never decides on its own. | Only to change the rules |
 | `requirements.txt` | **The shopping list.** Tells the hosting platform which Python packages to install (just `streamlit`). Must be named exactly this — lowercase. | No |
 | `README.md` | This file. | — |
+| `HOW_IT_WAS_BUILT.md` | **The prompt story.** The exact plain-language prompts that created each file, in order — copy them to build your own. | Read it |
 
 **The design idea in one line:** *language and layout live in the app; the rules live in the engine; the decision stays with a human.* That separation is the whole lesson — you can read `loan_rules.py` and audit every rule, which you could never do with a black-box model.
+
+---
+
+## How this was built (and how you build the same way)
+
+**Nothing here was written from a blank page.** Every file started as a plain-language prompt
+handed to an AI assistant, then was run, tested, and corrected. The full prompt-by-prompt story —
+copy-paste ready — is in **[`HOW_IT_WAS_BUILT.md`](HOW_IT_WAS_BUILT.md)**. The short version:
+
+1. **`loan_rules.py`** — prompt: "check a loan application against these eight rules, return each
+   rule's status + a recommendation, never approve/reject." *(The decision engine — built first.)*
+2. **`test_golden_set.py`** — prompt: "five test cases with expected answers; pass/fail each."
+   *(How you know it works — and a real bug in the rules was caught here.)*
+3. **`agent1_precheck.py` / `agent2_batch_scorer.py`** — prompt: "run one applicant" / "score the
+   whole CSV into a ranked worklist." *(One agent, then the batch.)*
+4. **`ml_model_caveat_demo.py`** — prompt: "two models on the same data; report accuracy AND
+   defaulters caught; show a case where they disagree." *(Proves why model choice is a risk decision.)*
+5. **`app.py`** — prompt: "convert the engine into a Gradio web app with a privacy banner."
+6. **`streamlit_app.py`** — prompt: "convert to a styled, self-contained Streamlit app with a
+   colour-coded Pre-Check Card." *(The deployed version.)*
+
+Every step was the same loop: **specify → generate → run → test → fix.** The AI writes the syntax;
+you own the specification and the testing. That is the skill — not memorising code.
 
 ---
 
@@ -110,5 +134,5 @@ Three greens = your deployment is real and shareable.
 
 ---
 
-*Built for the Masterclass on Agentic AI @ Trichy · Dr. Sridevi Tandley · Siji Consultancy LLP.*
+*Built for the Masterclass on Agentic AI @ Trichy · Dr. Sridevi Tandley · *
 *All data synthetic. The agent recommends; a human decides.*
