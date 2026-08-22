@@ -1,0 +1,13 @@
+Applicant ID : A007
+Name : Suresh Babu
+Age : 38
+Net monthly income : Rs 60,000
+Existing EMIs : Rs 8,000
+Loan requested : Rs 8,00,000
+Tenure : 48 months
+Credit score : 755
+1. ID proof : YES
+2. Address proof : YES
+3. Salary slips : YES
+4. Bank statement : YES
+Note: stated income Rs 60,000 but slips average Rs 32,000
