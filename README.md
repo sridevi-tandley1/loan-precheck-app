@@ -68,7 +68,7 @@ You need two free accounts: **GitHub** (stores the code) and **Streamlit** (runs
    - **Branch:** `main`
    - **Main file path:** `streamlit_app.py`
 9. Click **Deploy**. First build takes 1–3 minutes.
-10. You get a permanent URL like `https://loan-precheck-app-xxxx.streamlit.app` — share it with anyone.
+10. You get a permanent URL like `https://loan-precheck-app-xxxx.streamlit.app` — share it with anyone. (We have already framed the model for learning purpose and you can check if you are getting something similar to the one which we have created - URL link is: `https://loan-precheck-app-bxr3pjygpxknvgzxd5b9g2.streamlit.app/` )
 
 ### Step 3 — Test before you trust (do this every time you deploy)
 Paste each case, press **Run pre-check**, confirm the result:
