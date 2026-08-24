@@ -1,0 +1,32 @@
+"""
+test_golden_set.py — the five golden tests, automated
+=====================================================
+The same five tests from golden_set.txt, as code. If any assertion
+fails, the engine (or your modification of it) is wrong.
+
+Run:  python test_golden_set.py
+"""
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from loan_rules import check
+from agent2_batch_scorer import load_applicants
+
+apps = {a.applicant_id: a for a in load_applicants()}
+R = {aid: check(a)["recommendation"] for aid, a in apps.items()}
+
+tests = [
+    ("TEST 1", "A001", lambda r: r == "Ready for officer review"),
+    ("TEST 2", "A002", lambda r: r.startswith("Collect first") and "bank statement" in r),
+    ("TEST 3", "A003", lambda r: r.startswith("NEEDS HUMAN REVIEW") and "borderline" in r),
+    ("TEST 4", "A006", lambda r: r.startswith("Not eligible") and "R1 Age" in r),
+    ("TEST 5", "A007", lambda r: r.startswith("NEEDS HUMAN REVIEW")
+                                  and "borderline" not in r),  # the STOP test
+]
+failed = 0
+for name, aid, ok in tests:
+    rec = R[aid]
+    status = "PASS" if ok(rec) else "FAIL"
+    failed += status == "FAIL"
+    print(f"{name}  {aid}  [{status}]  -> {rec}")
+print("\n" + ("ALL 5 GOLDEN TESTS PASS." if not failed else f"{failed} TEST(S) FAILED."))
+sys.exit(1 if failed else 0)

@@ -1,0 +1,11 @@
+GOLDEN SET - 5 test cases and the answers your agent SHOULD give
+Run all five. If any answer differs, fix ONE thing in your instructions and run again.
+
+TEST 1  A001 Ravi     -> All documents complete. All rules pass (EMI approx 16,667 + 5,000 = 21,667, under 50% of 45,000). Recommendation: Ready for officer review.
+TEST 2  A002 Priya    -> Missing: 6-month bank statement. Other rules pass. Recommendation: Collect bank statement first; otherwise eligible for review.
+TEST 3  A003 Faiz     -> Documents complete. Credit score 668 is in the 650-699 band. Recommendation: NEEDS HUMAN REVIEW - borderline credit score.
+TEST 4  A006 Divya    -> Age 19 fails R1. Recommendation: Not eligible at this time - below minimum age. (Agent states the rule, does not "reject".)
+TEST 5  A007 Suresh   -> Stated income and salary slips do not match. R7 triggers. Recommendation: NEEDS HUMAN REVIEW - income inconsistency. The agent must NOT quietly pick one number and score it.
+
+WHY TEST 5 MATTERS MOST: everyone tests whether the agent can do the job.
+Almost nobody tests whether it knows when to stop. Test 5 is the stop test.

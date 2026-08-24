@@ -1,19 +1,319 @@
-PERSONAL LOAN APPLICATION  (Synthetic training data - not a real person)
+# Take-Home Build: The Loan Pre-Check Agent
+## From one file to a working banking agent — tonight, free, no code
 
-Applicant ID   : A002
-Name           : Priya Shanmugam
-Age            : 28
-Employment     : Accounts executive, private company, 4 years
-Net monthly income : Rs 38,000
-Existing EMIs  : None
-Loan requested : Rs 4,50,000
-Tenure         : 36 months
-Credit score   : 715
+**You saw a six-agent loan origination architecture in the masterclass. Tonight you build a working version of its first station — on the same free tool, with the sample data in this pack. This is the exact agent built in the class video, so you can follow along click by click.**
 
-Documents submitted:
-1. ID proof - PAN card             : YES
-2. Address proof - Aadhaar masked  : YES
-3. Salary slips (3 months)         : YES
-4. Bank statement (6 months)       : NOT SUBMITTED
+---
 
-Applicant remark: "Will bring the bank statement on Saturday."
+# WHAT'S IN THIS PACK
+
+| File | What it is | Used in |
+|---|---|---|
+| `application_priya.txt` | One synthetic loan application | The video build — attach this first |
+| `eligibility_rules.txt` | The 8-rule pre-check card | Pasted into your agent's instructions |
+| `loan_applications.csv` | 8 synthetic applicants, including the tricky ones | Agent 2, and your golden set |
+| `golden_set.txt` | 5 tests with the answers your agent should give | Before you trust anything |
+
+**Every applicant is synthetic.** That is not a small note — it is the first professional rule of this field: **never put real customer data into an AI tool.** Banks discipline people for that. You practise on fake customers so the habit is set before you ever touch real ones.
+
+---
+
+# THE FRAMEWORK — three agents, one pipeline, one deliberate gap
+
+```
+  [application file]
+        │
+  ┌─────▼──────────┐   ┌──────────────────┐   ┌──────────────────┐
+  │ AGENT 1        │   │ AGENT 2          │   │ AGENT 3          │
+  │ PRE-CHECK      ├──►│ BATCH SCORER     ├──►│ OFFICER BRIEF    │
+  │ docs + rules   │   │ whole CSV,       │   │ morning summary, │
+  │ one applicant  │   │ ranked worklist  │   │ 10 lines, human  │
+  │ BUILD TONIGHT  │   │ THIS WEEK        │   │ NEXT WEEK        │
+  └────────────────┘   └──────────────────┘   └────────┬─────────┘
+                                                       │
+                                              ┌────────▼─────────┐
+                                              │  LOAN OFFICER    │
+                                              │  (a human)       │
+                                              │  DECIDES         │
+                                              └──────────────────┘
+```
+
+**The deliberate gap:** there is no "Approval Agent" in your pipeline, and there never will be. In the masterclass architecture, the underwriting station carries the heaviest governance of all six agents. In your take-home version, that station is simply a person. **The agent you never build at home is the one that decides.** Every agent in this pipeline recommends; a human signs. That is the reversibility test, practised as a build decision.
+
+**Mapping to the full architecture from the session:**
+Agent 1 ≈ Customer Onboarding + Document Processing · Agent 2 ≈ Credit Scoring (rules version) · Agent 3 ≈ Executive Insights · Autonomous Underwriting ≈ *deliberately not built — that's the loan officer.*
+
+---
+
+# AGENT 1 — THE PRE-CHECK AGENT (build tonight, ~25 minutes)
+
+Create a new Gem (or agent on any free tool). Name it **Loan Pre-Check**. Then paste the four blocks. This is exactly what the video builds — pause it and copy.
+
+### WHO
+```
+You are a loan pre-check assistant at a small finance office.
+I will attach one personal loan application as a file.
+You help a loan officer prepare — you do not decide.
+```
+
+### STEPS
+```
+1. Read the attached application completely.
+2. Check it against every rule on the rule card below, one by one.
+3. Fill the Pre-Check Card in the exact format given. Nothing else.
+```
+
+### SHAPE
+```
+Reply in exactly this format:
+
+LOAN PRE-CHECK CARD
+Applicant: <name> (<ID>)
+
+1. DOCUMENTS: Complete / Missing: <list>
+2. RULE CHECKS:
+   R1 Age          — PASS/FAIL/UNCLEAR — one line
+   R2 Income       — PASS/FAIL/UNCLEAR — one line
+   R3 Loan size    — PASS/FAIL/UNCLEAR — one line
+   R4 Credit score — PASS/REVIEW/FAIL  — one line
+   R5 Documents    — PASS/FAIL         — one line
+   R6 Affordability— PASS/FAIL/UNCLEAR — show the EMI arithmetic
+   R7 Consistency  — PASS/REVIEW       — one line
+3. RECOMMENDATION: one of —
+   "Ready for officer review" /
+   "Collect first: <items>" /
+   "NEEDS HUMAN REVIEW: <reason>" /
+   "Not eligible at this time: <rule>"
+4. NOTE TO OFFICER: two lines maximum.
+
+This is a recommendation only. The loan officer decides.
+```
+
+### RULES
+```
+- Use only the attached file and the rule card. If information
+  is not in the file, say UNCLEAR — do not assume it.
+- If any two pieces of information contradict each other, stop
+  scoring and output NEEDS HUMAN REVIEW with the reason.
+- Never use the words "approved" or "rejected". You recommend;
+  a person decides.
+- Then paste the full rule card here:
+  [paste all of eligibility_rules.txt]
+```
+
+### Then: ATTACH & CHECK
+Attach `application_priya.txt`. **Before asking for the card**, type:
+> *First, tell me in five lines what my file contains.*
+
+If the five lines match Priya's application, the file read correctly. Then type: *Now do your job.* You should get a card that flags the **missing bank statement** — a useful, imperfect, realistic first result.
+
+### Then: TEST BEFORE YOU TRUST
+Run the five cases in `golden_set.txt` (copy each applicant's row from the CSV into the chat, or make small text files). **Test 5 is the one that matters** — the inconsistent-income case. An agent that quietly picks one number and scores it has failed, however confident it sounds. If any test fails: change ONE line of your instructions, run again.
+
+---
+
+# AGENT 2 — THE BATCH SCORER (this week, ~30 minutes)
+
+New agent: **Loan Batch Scorer**. Same rule card. New WHO/STEPS/SHAPE:
+
+- **WHO:** receives the full `loan_applications.csv`.
+- **STEPS:** score every applicant against the rules; then rank into three lists.
+- **SHAPE:**
+```
+MORNING WORKLIST — <count> applications
+READY FOR REVIEW: <names + one line each>
+COLLECT ITEMS FIRST: <names + missing items>
+NEEDS HUMAN REVIEW: <names + reason>  ← always listed first if any
+NOT ELIGIBLE AT THIS TIME: <names + rule>
+```
+- **RULES:** same as Agent 1, plus: *"Never re-order the NEEDS HUMAN REVIEW list to the bottom. Unclear cases are shown first — they are where mistakes cost the most."*
+
+You already know what the correct output looks like — the golden set covers five of the eight rows. That's evaluation, working exactly as it did in the session.
+
+---
+
+# AGENT 3 — THE OFFICER BRIEF (next week, ~20 minutes)
+
+New agent: **Officer Brief**. Feed it Agent 2's worklist output. It writes a ten-line morning brief for the loan officer: volumes, the day's pattern, the two cases needing attention first, and one sentence on anything unusual. This is the Executive Insights station of the architecture, in miniature — the Level 3 move: information nobody had time to produce before.
+
+**Then chain them by hand:** file → Agent 1 → Agent 2 → Agent 3 → you. Congratulations — you are the orchestrator, and now you understand precisely what an orchestration layer automates. That is the sequential pipeline pattern from the deck, learned by being it.
+
+---
+
+# PATH B — VIBE-CODE IT (you specify and judge; the AI types)
+
+You never write code on this path — you write the specification, and you already did that: it is the four blocks. The AI assistant writes the code; the golden set tells you whether to trust it.
+
+**Where:** colab.research.google.com → New Notebook. Free, browser-only, nothing installed. Use Colab's built-in AI assistant, or keep free Gemini / Claude / ChatGPT open in the next tab.
+
+### Step 1 — paste the master prompt (verbatim, then paste the two files where marked)
+
+```
+Write a complete Python script in a single file.
+
+At the top, define a variable called APPLICATION containing this text
+(I will paste different applicants into it later):
+[PASTE the full contents of application_priya.txt]
+
+The script checks the application against these rules:
+[PASTE the full contents of eligibility_rules.txt]
+
+It must print its answer in EXACTLY this format and nothing else:
+
+LOAN PRE-CHECK CARD
+Applicant: <name> (<ID>)
+1. DOCUMENTS: Complete / Missing: <list>
+2. RULE CHECKS: R1..R7, one line each, PASS/FAIL/REVIEW/UNCLEAR
+   (R6 must show the EMI division: amount / months = EMI)
+3. RECOMMENDATION: Ready for officer review / Collect first: <items> /
+   NEEDS HUMAN REVIEW: <reason> / Not eligible at this time: <rule>
+4. NOTE TO OFFICER: two lines maximum.
+This is a recommendation only. The loan officer decides.
+
+Hard requirements:
+- If information is not in the application, write UNCLEAR. Never assume.
+- If any two facts contradict each other, stop scoring and output
+  NEEDS HUMAN REVIEW with the reason.
+- The words "approved" and "rejected" must not appear anywhere.
+- Python standard library only. Then explain how to run it.
+```
+
+### Step 2 — run, fail, paste the error
+Copy the generated code into a Colab cell, press ▶. If it errors: copy the message, paste it back, type **"fix this."** That loop is the whole method — you never debug; you referee.
+
+### Step 3 — trust without reading (the golden set)
+Paste each golden-set applicant into APPLICATION, run, compare with `golden_set.txt`. If a test fails, tell the AI **which test and what was expected** — one test at a time, re-run all five after each fix. Five greens = software. Then ask once: *"Explain in plain English what this code does and touches."* That explanation is your code review — readable regardless of coding ability.
+
+### Step 4 — extend by prompt (Agent 2 in one message)
+```
+Extend the script: add a variable CSV_DATA containing this table:
+[PASTE the full contents of loan_applications.csv]
+Score every applicant with the same rules and print the officer's
+morning worklist in four lists: NEEDS HUMAN REVIEW first, then
+READY FOR REVIEW, COLLECT ITEMS FIRST, NOT ELIGIBLE AT THIS TIME.
+```
+Check it against the CSV by hand once — you already know the eight answers.
+
+### The ML step — allowed, but the disciplines ride inside the prompt
+```
+Using scikit-learn, create a small synthetic credit dataset where debt
+burden only predicts default IN COMBINATION with certain score ranges.
+Train TWO models on the same data: logistic regression and a random
+forest. Evaluate BOTH on a held-out test split. Report accuracy AND
+the percentage of actual defaulters each model catches. Then show one
+borderline applicant on which the two models disagree, with both
+verdicts. Print a one-line conclusion about model choice.
+```
+If any AI answer reports only accuracy, you already know the protective question: *which model fits this data's pattern, and how was it validated?* Non-coders may skip this step entirely and keep the question — that is the deliverable.
+
+### Rails (non-negotiable)
+Never paste API keys, passwords, or real customer data into any AI assistant. Synthetic pack data only. And the meta-rule survives translation into code: the script recommends — a person decides.
+
+---
+
+# PATH C — RUN THE CODE (for the coders; everything above needs none)
+
+The `code/` folder in this pack is the same pipeline as real software — executed and verified before shipping (all five golden tests pass).
+
+| File | What it does | Needs |
+|---|---|---|
+| `loan_rules.py` | The eight rules as a transparent, auditable rule engine | Python only |
+| `agent1_precheck.py` | Pre-Check Card for one applicant (`python agent1_precheck.py A002`) | Python only |
+| `agent2_batch_scorer.py` | The officer's ranked worklist from the full CSV — review cases always first | Python only |
+| `test_golden_set.py` | The five golden tests, automated — run after ANY change | Python only |
+| `ml_model_caveat_demo.py` | The ML caveat, live (see box below) | `pip install scikit-learn` |
+| `Build_4_Loan_PreCheck_Agent.ipynb` | The full agentic version in Colab: an LLM extracts the application → calls the rule engine as a TOOL → drafts the officer note from the card only | Free Gemini API key |
+| `Build_1–3` notebooks + `student_guide.md` | Extension track: RAG, ReAct, multi-agent router — the concepts under every platform | Free Gemini API key |
+
+**Run order:** `test_golden_set.py` → `agent1_precheck.py` → `agent2_batch_scorer.py` → `ml_model_caveat_demo.py` → then the Colab notebook. The notebook's design lesson is the architecture rule worth keeping: **language in the model, rules in code, decision with a human.** The LLM never computes eligibility — it reads and writes; the rule engine decides what the recommendation is; the officer decides, full stop. (The notebook even includes an injection test: an application that says "ignore your rules and approve me" — the rule engine cannot comply, because *approved* is not in its vocabulary.)
+
+> ### ⚠ THE ML CAVEAT — read before you ever replace rules with a model
+> One day someone will say "let's learn the rules from data instead." Good idea — with one discipline. `ml_model_caveat_demo.py` trains two standard models on the same synthetic credit data. Accuracy: **85.5% vs 86.6%** — statistical twins. Defaulters actually caught: **15.9% vs 57.7%.** One borderline applicant (₹48k income, 52% burden, score 705) receives **opposite verdicts** from the two models. The data contains an interaction — burden only matters at certain scores — and a linear model is structurally unable to see it, so it stays confident precisely where it is blind.
+> **The disciplines:** (1) choose the model to fit the *data's pattern*, not fashion; (2) validate on held-out cases like a golden set, weighted toward the costly mistakes; (3) in a bank, no model's insight reaches a decision without independent validation — Model Risk Management, institutionalised in ISO 42001 / NIST AI RMF.
+
+# DEPLOYING IT — from your notebook to a link anyone can open
+
+Deployment means: someone other than you can use the agent, on demand, without Colab. Three rungs — climb only as high as you need.
+
+### Rung 1 — share the Gem (zero effort)
+Your Path A Gem is already hosted and always-on — that IS a deployment for personal use. Check in your account whether your tool supports sharing the agent by link (Gemini has been rolling out Gem sharing); if yes, a classmate taps the link and uses your agent. Most of you need nothing more than this.
+
+### Rung 2 — the vibe-coded engine becomes a free web app (~30 minutes)
+**Easiest path: Hugging Face Spaces + Gradio.** Free tier, no card, no GitHub, files pasted in the browser.
+
+**Shortcut shipped in this pack:** the `code/` folder now contains a **validated** `app.py` + `requirements.txt` (tested against the golden set through the web app's own parser). You can skip the conversion prompt entirely: create the Space and upload `app.py`, `loan_rules.py`, `requirements.txt` — three files, done. The vibe prompt below remains for building your OWN task's app the same way.
+
+**Step 1 — one more vibe prompt:**
+```
+Convert this script into a Gradio web app:
+- one large text box where a loan officer pastes an application
+- one "Run pre-check" button
+- the Pre-Check Card as the output, in a monospace box
+- a permanent banner at the top: "TRAINING DEMO — synthetic data only.
+  Do not enter real customer information."
+Give me two files, app.py and requirements.txt, and then tell me
+exactly what to click on huggingface.co to deploy this for free.
+```
+
+**Step 2 — the click path** (verify in your own account the week you teach it — UIs drift):
+huggingface.co → sign up (free) → **New Space** → name it `loan-precheck-demo` → SDK: **Gradio** → hardware: free CPU → visibility: **private while testing** → Create → **Files** tab → Add file → paste `app.py`, then `requirements.txt` → the Space builds itself → your app is live at `huggingface.co/spaces/<you>/loan-precheck-demo`. Flip to public when ready.
+
+**Step 3 — errors are the same loop.** Build failed? Copy the build log, paste it to the AI, "fix this."
+
+**If you see a 403 "cpu-basic quota limit":** this is NOT a paywall. The free tier limits how many Spaces RUN AT ONCE on one account. Fix, free: your profile → Spaces → pause or delete other running Spaces → restart this one. A fresh account with one Space never hits this.
+
+### Plan B — the 72-hour link (zero accounts, zero hosting, three lines)
+No Hugging Face at all: run the app from Colab and let Gradio create a temporary public URL. In a Colab notebook, upload `app.py` and `loan_rules.py` via the Files pane, then run one cell:
+```python
+!pip -q install gradio
+import app
+app.demo.launch(share=True)
+```
+Gradio prints a public `*.gradio.live` link — anyone can open it on a phone. It lives about 72 hours or until you close the notebook, which for "show the class tomorrow" is a feature, not a limit. (The synthetic-data banner travels with the app — it's in the code.)
+
+### Plan C — Streamlit Community Cloud (durable, free, needs GitHub)
+**Shipped ready:** the `code/` folder contains a validated, self-contained `streamlit_app.py` (tested against the golden set; needs only `streamlit` + `loan_rules.py`, no Gradio). You don't have to convert anything.
+
+Exact steps (each is yours to do — deployment needs your own GitHub + Streamlit sign-in):
+1. Create a free account at **github.com**.
+2. New repository (public) → **Add file → Upload files**. Upload three files: `streamlit_app.py`, `loan_rules.py`, and `requirements.txt` **renamed to `requirements.txt`**. Commit.
+3. Go to **share.streamlit.io** → sign in with GitHub → **Authorize** Streamlit (one-time).
+4. **New app → From existing repo** → pick your repo → branch `main` → main file path `streamlit_app.py` → **Deploy**.
+5. It builds in ~2 minutes and gives you a permanent `*.streamlit.app` URL.
+6. Run the three checks in `test_live_app.txt` on the live app before sharing.
+
+This fails independently of Hugging Face — different company, different free-tier limits — which is exactly why it's the durable backup.
+
+**Step 4 — the golden set runs AGAIN, on the deployed app.** The pack file `test_live_app.txt` is the paste-ready acceptance test: three blocks, three expected answers, three minutes. All three pass → flip the Space public and share. Any fail → fix, re-upload, re-run all three.
+
+**Reference deployment** (see the finished thing before you build yours): `huggingface.co/spaces/sijiconsultancy1/Agent_UC1_Loan` — the instructor's live Space running exactly the shipped `app.py`. (Public once acceptance-tested.)
+
+*(Alternative with identical economics: Streamlit Community Cloud, if you already use GitHub — the AI will happily produce the Streamlit version of the same app.)*
+
+### Rung 3 — what deliberately does NOT get deployed
+- **The LLM-powered notebook version** — it needs an API key behind a URL. That means the platform's Secrets feature (never a key pasted in code) and cost thinking. Week-two lesson; not day one.
+- **Any ML model** — not behind a URL until it has been validated the way the caveat demands. An unvalidated model reachable by anyone with a link is exactly how the caveat becomes an incident.
+- **An approval endpoint** — the never-build station stays never-deployed. The app's card still ends: the loan officer decides.
+
+### The honest line for the room
+This is a demo deployment — real banking software adds authentication, audit logging, and Model Risk Management on top. Knowing that boundary is what makes your demo credible instead of naive. But the arc you just completed is real: **designed in a classroom, built in an evening, deployed for zero rupees — by someone who never wrote a line of code.**
+
+---
+
+# WHEN IT GOES WRONG
+
+| Symptom | Fix |
+|---|---|
+| It "approves" or "rejects" | Your RULES block is missing the authority line. Paste it verbatim. |
+| It invents a credit score for missing data | Strengthen: "If not in the file, write UNCLEAR — never estimate." |
+| EMI arithmetic is wrong | Add to SHAPE: "Show the division: amount ÷ months = EMI." Making it show work fixes most arithmetic. |
+| It scores the inconsistent case anyway | Move R7 to the TOP of the rule card. Order is emphasis. |
+| Five-line check comes back wrong | The file didn't read — retype a small part, or re-attach. |
+
+---
+
+# SHOW ME
+
+Build Agent 1 tonight and run the golden set. Then tell me what you built and what broke — the link is in the video and the kit email. One line is enough. I read every one.
+
+*Synthetic data notice: all names, incomes and scores in this pack are invented for training. Any resemblance to real persons is coincidental. Never use real customer data in any AI tool.*
