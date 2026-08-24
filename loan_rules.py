@@ -1,138 +1,116 @@
-# 🏦 Loan Pre-Check Agent — Agentic AI Masterclass (iTNT Hub, Trichy)
+"""
+loan_rules.py — The Pre-Check rule engine (Agent 1's tool)
+===========================================================
+Deterministic, auditable, no API key needed. Every check maps 1:1 to
+eligibility_rules.txt (R1–R8). The LLM never does this arithmetic —
+it calls this engine as a TOOL. That separation is the design lesson:
+language in the model, rules in code, decision with a human.
 
-A no-code / low-code **Agentic AI** demo: paste one loan application, get a structured
-**Pre-Check Card** — documents checked, eight eligibility rules applied, and a clear
-recommendation. **The agent recommends; a loan officer decides.**
+Training material for the iTNT Masterclass take-home. Synthetic data only.
+"""
 
-> ⚠️ **Training demo. Synthetic data only.** Every applicant here is invented.
-> Never put real customer data — Aadhaar, passwords, real applicant details — into any AI tool.
+from dataclasses import dataclass, field
 
-**Live app:** deploy your own in ~10 minutes using the steps below. No payment, no credit card.
+REQUIRED_DOCS = [
+    "ID proof",
+    "Address proof",
+    "3 salary slips",
+    "6-month bank statement",
+]
 
----
+@dataclass
+class Applicant:
+    applicant_id: str
+    name: str
+    age: int
+    net_monthly_income_inr: float
+    existing_emi_inr: float
+    loan_amount_requested_inr: float
+    tenure_months: int
+    credit_score: int
+    documents_submitted: list = field(default_factory=list)
+    consistency_flag: bool = False   # True when any two facts contradict
+    consistency_note: str = ""
 
-## What each file is
 
-| File | What it is | Do I edit it? |
-|---|---|---|
-| `streamlit_app.py` | **The web app.** The styled interface + the text parser. Reads the pasted application, calls the rule engine, and draws the Pre-Check Card. | No — just deploy it |
-| `loan_rules.py` | **The decision engine.** The eight eligibility rules as plain, auditable Python. This is what actually decides PASS / REVIEW / FAIL — the app never decides on its own. | Only to change the rules |
-| `requirements.txt` | **The shopping list.** Tells the hosting platform which Python packages to install (just `streamlit`). Must be named exactly this — lowercase. | No |
-| `README.md` | This file. | — |
-| `HOW_IT_WAS_BUILT.md` | **The prompt story.** The exact plain-language prompts that created each file, in order — copy them to build your own. | Read it |
+def check(applicant: Applicant) -> dict:
+    """Run all eight rules. Returns a dict ready to be printed as a card."""
+    a = applicant
+    checks, missing = {}, []
 
-**The design idea in one line:** *language and layout live in the app; the rules live in the engine; the decision stays with a human.* That separation is the whole lesson — you can read `loan_rules.py` and audit every rule, which you could never do with a black-box model.
+    # R5 — documents
+    missing = [d for d in REQUIRED_DOCS if d not in a.documents_submitted]
+    checks["R5 Documents"] = ("PASS", "All four documents present.") if not missing \
+        else ("FAIL", f"Missing: {', '.join(missing)}")
 
----
+    # R1 — age
+    checks["R1 Age"] = ("PASS", f"{a.age} is within 21-60.") if 21 <= a.age <= 60 \
+        else ("FAIL", f"{a.age} is outside 21-60.")
 
-## How this was built (and how you build the same way)
+    # R2 — income
+    checks["R2 Income"] = ("PASS", f"Rs {a.net_monthly_income_inr:,.0f} >= Rs 25,000.") \
+        if a.net_monthly_income_inr >= 25000 \
+        else ("FAIL", f"Rs {a.net_monthly_income_inr:,.0f} is below Rs 25,000.")
 
-**Nothing here was written from a blank page.** Every file started as a plain-language prompt
-handed to an AI assistant, then was run, tested, and corrected. The full prompt-by-prompt story —
-copy-paste ready — is in **[`HOW_IT_WAS_BUILT.md`](HOW_IT_WAS_BUILT.md)**. The short version:
+    # R3 — loan size
+    cap = 20 * a.net_monthly_income_inr
+    checks["R3 Loan size"] = ("PASS", f"Rs {a.loan_amount_requested_inr:,.0f} <= 20x income (Rs {cap:,.0f}).") \
+        if a.loan_amount_requested_inr <= cap \
+        else ("FAIL", f"Rs {a.loan_amount_requested_inr:,.0f} exceeds 20x income (Rs {cap:,.0f}).")
 
-1. **`loan_rules.py`** — prompt: "check a loan application against these eight rules, return each
-   rule's status + a recommendation, never approve/reject." *(The decision engine — built first.)*
-2. **`test_golden_set.py`** — prompt: "five test cases with expected answers; pass/fail each."
-   *(How you know it works — and a real bug in the rules was caught here.)*
-3. **`agent1_precheck.py` / `agent2_batch_scorer.py`** — prompt: "run one applicant" / "score the
-   whole CSV into a ranked worklist." *(One agent, then the batch.)*
-4. **`ml_model_caveat_demo.py`** — prompt: "two models on the same data; report accuracy AND
-   defaulters caught; show a case where they disagree." *(Proves why model choice is a risk decision.)*
-5. **`app.py`** — prompt: "convert the engine into a Gradio web app with a privacy banner."
-6. **`streamlit_app.py`** — prompt: "convert to a styled, self-contained Streamlit app with a
-   colour-coded Pre-Check Card." *(The deployed version.)*
+    # R4 — credit score bands
+    if a.credit_score >= 700:
+        checks["R4 Credit score"] = ("PASS", f"{a.credit_score} >= 700.")
+    elif a.credit_score >= 650:
+        checks["R4 Credit score"] = ("REVIEW", f"{a.credit_score} is in the 650-699 band.")
+    else:
+        checks["R4 Credit score"] = ("FAIL", f"{a.credit_score} is below 650.")
 
-Every step was the same loop: **specify → generate → run → test → fix.** The AI writes the syntax;
-you own the specification and the testing. That is the skill — not memorising code.
+    # R6 — affordability (simplified EMI: amount / tenure, interest ignored — stated in rules)
+    emi = a.loan_amount_requested_inr / a.tenure_months
+    total = emi + a.existing_emi_inr
+    limit = 0.5 * a.net_monthly_income_inr
+    arithmetic = (f"{a.loan_amount_requested_inr:,.0f} / {a.tenure_months} = {emi:,.0f}; "
+                  f"{emi:,.0f} + existing {a.existing_emi_inr:,.0f} = {total:,.0f} vs limit {limit:,.0f}")
+    checks["R6 Affordability"] = ("PASS", arithmetic) if total <= limit else ("FAIL", arithmetic)
 
----
+    # R7 — consistency
+    checks["R7 Consistency"] = ("REVIEW", a.consistency_note or "Facts contradict — verify with applicant.") \
+        if a.consistency_flag else ("PASS", "No contradictions found in the file.")
 
-## Deploy it yourself — Streamlit Community Cloud (free, ~10 minutes)
+    # ---- Recommendation (priority order is the governance) ----
+    if checks["R7 Consistency"][0] == "REVIEW":
+        rec = f"NEEDS HUMAN REVIEW: {checks['R7 Consistency'][1]}"
+    elif any(checks[r][0] == "FAIL" for r in ("R1 Age", "R2 Income", "R3 Loan size", "R6 Affordability")) \
+            or checks["R4 Credit score"][0] == "FAIL":
+        failed = [r for r in ("R1 Age", "R2 Income", "R3 Loan size", "R4 Credit score", "R6 Affordability")
+                  if checks[r][0] == "FAIL"]
+        rec = f"Not eligible at this time: {', '.join(failed)}"
+    elif checks["R4 Credit score"][0] == "REVIEW":
+        rec = "NEEDS HUMAN REVIEW: borderline credit score (650-699 band)"
+    elif missing:
+        rec = f"Collect first: {', '.join(missing)}; otherwise eligible for review"
+    else:
+        rec = "Ready for officer review"
 
-You need two free accounts: **GitHub** (stores the code) and **Streamlit** (runs it). No card, ever.
+    return {"applicant": a, "checks": checks, "missing": missing, "recommendation": rec}
 
-### Step 1 — Get the code into your own GitHub
-1. Create a free account at **github.com**.
-2. Click **New** (green button) → name the repo `loan-precheck-app` → set **Public** → **Create repository**.
-3. On the empty repo page: **Add file → Upload files**.
-4. Upload these three files: `streamlit_app.py`, `loan_rules.py`, `requirements.txt`.
-   - ⚠️ The requirements file **must be named exactly `requirements.txt`** — all lowercase. `Requirements.txt` or `requirements_streamlit.txt` will fail silently.
-5. Click **Commit changes**.
 
-### Step 2 — Deploy on Streamlit
-6. Go to **share.streamlit.io** → **Continue with GitHub** → **Authorize** (one-time; approve the permission to read your repos).
-7. Click **Create app → Deploy a public app from GitHub**.
-8. Fill in:
-   - **Repository:** `your-username/loan-precheck-app`
-   - **Branch:** `main`
-   - **Main file path:** `streamlit_app.py`
-9. Click **Deploy**. First build takes 1–3 minutes.
-10. You get a permanent URL like `https://loan-precheck-app-xxxx.streamlit.app` — share it with anyone.
-
-### Step 3 — Test before you trust (do this every time you deploy)
-Paste each case, press **Run pre-check**, confirm the result:
-
-| Test | Paste | Correct result |
-|---|---|---|
-| **A — missing document** | The Priya sample (loads by default) | **COLLECT ITEMS FIRST** — missing 6-month bank statement |
-| **B — the stop test** | The Suresh block below | **NEEDS HUMAN REVIEW** — income inconsistency |
-| **C — junk input** | just type `hello` | A polite "paste a full application" message, no crash |
-
-<details>
-<summary>Suresh test block (copy this for Test B)</summary>
-
-```
-Applicant ID : A007
-Name : Suresh Babu
-Age : 38
-Net monthly income : Rs 60,000
-Existing EMIs : Rs 8,000
-Loan requested : Rs 8,00,000
-Tenure : 48 months
-Credit score : 755
-1. ID proof : YES
-2. Address proof : YES
-3. Salary slips : YES
-4. Bank statement : YES
-Note: stated income Rs 60,000 but slips average Rs 32,000
-```
-Test B is the one that matters: if the app scores Suresh instead of stopping, it has failed —
-an agent that quietly picks one number when the facts contradict is dangerous, however confident it looks.
-</details>
-
-Three greens = your deployment is real and shareable.
-
----
-
-## Common problems and their fixes
-
-| What you see | What it means | Fix |
-|---|---|---|
-| `ModuleNotFoundError: streamlit` | The requirements file wasn't found | Rename it to exactly `requirements.txt` (lowercase), commit, reboot the app |
-| App shows a stack trace | A file is missing or misnamed | Confirm all three files are in the repo root, spelled exactly as above |
-| `403 — quota limit` (Hugging Face) | Too many apps running on one account | Not a paywall — pause other apps, or use Streamlit as here |
-| Repo doesn't appear in Streamlit | Streamlit wasn't authorised to read it, or repo is private | Re-authorise on share.streamlit.io; set the repo **Public** |
-| Blank / "in the oven" | First boot | Wait ~1 minute; it self-starts |
-
----
-
-## The eight rules (in `loan_rules.py`)
-
-`R1` age 21–60 · `R2` income ≥ ₹25,000 · `R3` loan ≤ 20× income · `R4` credit score
-(≥700 pass / 650–699 review / <650 fail) · `R5` four required documents ·
-`R6` affordability (EMI + existing EMIs ≤ 50% of income) · `R7` consistency
-(contradictions → human review) · `R8` authority — **the agent recommends; a human decides.**
-
----
-
-## Free alternatives if you don't want GitHub
-
-- **72-hour link (zero accounts):** run the pack's `app.py` in Google Colab with
-  `app.demo.launch(share=True)` — Gradio gives a temporary public `*.gradio.live` URL.
-- **Hugging Face Spaces:** upload `app.py` + `loan_rules.py` + `requirements.txt`, SDK = Gradio.
-
----
-
-*Built for the Masterclass on Agentic AI @ Trichy · Dr. Sridevi Tandley · Siji Consultancy LLP.*
-*All data synthetic. The agent recommends; a human decides.*
+def render_card(result: dict) -> str:
+    a = result["applicant"]
+    lines = [
+        "LOAN PRE-CHECK CARD",
+        f"Applicant: {a.name} ({a.applicant_id})",
+        "",
+        "1. DOCUMENTS: " + ("Complete" if not result["missing"]
+                            else "Missing: " + ", ".join(result["missing"])),
+        "2. RULE CHECKS:",
+    ]
+    for rule, (status, note) in result["checks"].items():
+        lines.append(f"   {rule:<16} - {status:<6} - {note}")
+    lines += [
+        f"3. RECOMMENDATION: {result['recommendation']}",
+        "",
+        "This is a recommendation only. The loan officer decides.",
+    ]
+    return "\n".join(lines)
