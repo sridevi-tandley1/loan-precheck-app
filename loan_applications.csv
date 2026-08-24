@@ -1,0 +1,22 @@
+FOLDER 04 — DEPLOY TO THE WEB
+=============================
+Goal: your agent on a live link anyone can open. Free, no card.
+
+THE STEPS live in two places you already have:
+  * WORKSHEET (folder 02) -> section "DEPLOYING IT":
+      Plan A  Hugging Face Spaces (upload 3 files from folder 03)
+      Plan B  the 72-hour Colab link (zero accounts, 3 lines)
+      Plan C  Streamlit Cloud via GitHub (durable URL)
+  * README.md (folder 03) -> the same steps with screenshots-level
+      detail and the troubleshooting table.
+
+THIS folder holds the one thing people skip:
+  test_live_app.txt
+      The 3-minute acceptance test. Run it ON THE LIVE LINK
+      before sharing. Deployed behaviour is only trusted when
+      tested deployed. Three greens -> share your link.
+
+The filename trap that catches everyone: the requirements file
+must be named exactly  requirements.txt  (lowercase).
+
+When it's live: email the link -> sridevi.tandley@bim.edu

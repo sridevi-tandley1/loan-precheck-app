@@ -1,0 +1,19 @@
+PERSONAL LOAN APPLICATION  (Synthetic training data - not a real person)
+
+Applicant ID   : A002
+Name           : Priya Shanmugam
+Age            : 28
+Employment     : Accounts executive, private company, 4 years
+Net monthly income : Rs 38,000
+Existing EMIs  : None
+Loan requested : Rs 4,50,000
+Tenure         : 36 months
+Credit score   : 715
+
+Documents submitted:
+1. ID proof - PAN card             : YES
+2. Address proof - Aadhaar masked  : YES
+3. Salary slips (3 months)         : YES
+4. Bank statement (6 months)       : NOT SUBMITTED
+
+Applicant remark: "Will bring the bank statement on Saturday."
